@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="DataPrep.Core/DataPrep.Core.csproj" />
+  <Project Path="DataPrep.Infrastructure/DataPrep.Infrastructure.csproj" />
+  <Project Path="DataPrep.Tests/DataPrep.Tests.csproj" />
+  <Project Path="DataPrep.Web/DataPrep.Web.csproj" />
+</Solution>
