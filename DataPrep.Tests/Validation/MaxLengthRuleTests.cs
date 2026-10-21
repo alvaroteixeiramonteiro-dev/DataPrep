@@ -3,6 +3,7 @@ using DataPrep.Core.Validation.Rules;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Globalization;
 
 namespace DataPrep.Tests.Validation;
 
@@ -78,8 +79,9 @@ public sealed class MaxLengthRuleTests
         Assert.Equal(1, issue.ColumnNumber);
 
         // Estes casos utilizam limites de um algarismo.
+        // Compara o limite usando uma representação independente do idioma.
         Assert.Equal(
-            ((char)('0' + maxLength)).ToString(),
+            maxLength.ToString(CultureInfo.InvariantCulture),
             issue.Parameters["maxLength"]);
 
         Assert.Equal(expectedLength, issue.Parameters["actualLength"]);
