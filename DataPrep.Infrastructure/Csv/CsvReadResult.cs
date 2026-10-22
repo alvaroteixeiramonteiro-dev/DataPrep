@@ -17,4 +17,11 @@ public sealed class CsvReadResult
     /// Registos de dados, excluindo o cabeçalho.
     /// </summary>
     public required IReadOnlyList<CsvDataRecord> Records { get; init; }
+
+    /// <summary>
+    /// Última linha física ocupada pelo cabeçalho.
+    /// É null quando não foi lido um cabeçalho.
+    /// O cabeçalho começa na primeira linha física do ficheiro.
+    /// </summary>
+    public long? HeaderEndLineNumber { get; init; }
 }

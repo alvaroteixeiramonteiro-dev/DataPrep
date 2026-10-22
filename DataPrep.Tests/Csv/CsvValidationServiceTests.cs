@@ -194,4 +194,116 @@ public sealed class CsvValidationServiceTests
             new CsvValidationService().Validate(
                 csv, mappings, expectedColumnCount: 2));
     }
+
+    /// <summary>
+    /// Um cabeçalho sem nome deve produzir um diagnóstico localizado.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Validate_WhenHeaderIsBlank_ReturnsHeaderIssue(string header)
+    {
+        // Preparação.
+        using var reader = new StringReader(
+            $"codigo;{header}\nP1;10");
+
+        var csv = new CsvDataReader().Read(reader);
+
+        // Execução: não são necessários mapeamentos para validar cabeçalhos.
+        var issues = new CsvValidationService().Validate(
+            csv,
+            Array.Empty<FieldMapping>(),
+            expectedColumnCount: 2);
+
+        // Verificação.
+        var issue = Assert.Single(issues);
+
+        Assert.Equal("validation.header_required", issue.RuleCode);
+        Assert.Equal("correction.provide_header", issue.CorrectionCode);
+        Assert.Equal(header, issue.OriginalValue);
+        Assert.Equal(2, issue.ColumnNumber);
+        Assert.Equal(1L, issue.StartLineNumber);
+        Assert.Equal(1L, issue.EndLineNumber);
+    }
+
+    /// <summary>
+    /// Um cabeçalho repetido indica também a primeira coluna com esse nome.
+    /// Verifica a localização de um cabeçalho que ocupa várias linhas.
+    /// </summary>
+    [Fact]
+    public void Validate_WhenHeaderIsRepeated_ReturnsDuplicateIssue()
+    {
+        // Preparação: o segundo cabeçalho contém uma quebra de linha.
+        using var reader = new StringReader(
+            "codigo;\"descricao\nlonga\";codigo\nP1;Mesa;P2");
+
+        var csv = new CsvDataReader().Read(reader);
+
+        // Execução.
+        var issues = new CsvValidationService().Validate(
+            csv,
+            Array.Empty<FieldMapping>(),
+            expectedColumnCount: 3);
+
+        // Verificação.
+        var issue = Assert.Single(issues);
+
+        Assert.Equal("validation.duplicate_header", issue.RuleCode);
+        Assert.Equal("codigo", issue.OriginalValue);
+        Assert.Equal(3, issue.ColumnNumber);
+        Assert.Equal("1", issue.Parameters["firstColumnNumber"]);
+        Assert.Equal(1L, issue.StartLineNumber);
+        Assert.Equal(2L, issue.EndLineNumber);
+    }
+
+    /// <summary>
+    /// Um ficheiro vazio e um ficheiro apenas com cabeçalho
+    /// devem produzir diagnósticos diferentes.
+    /// </summary>
+    [Theory]
+    [InlineData("", "validation.empty_file")]
+    [InlineData("codigo;nome", "validation.no_data_records")]
+    public void Validate_WhenThereAreNoData_ReturnsFileIssue(
+        string content,
+        string expectedCode)
+    {
+        // Preparação.
+        using var reader = new StringReader(content);
+        var csv = new CsvDataReader().Read(reader);
+
+        // Execução.
+        var issues = new CsvValidationService().Validate(
+            csv,
+            Array.Empty<FieldMapping>(),
+            expectedColumnCount: 2);
+
+        // Verificação.
+        var issue = Assert.Single(issues);
+
+        Assert.Equal(expectedCode, issue.RuleCode);
+        Assert.Equal(ValidationSeverity.Error, issue.Severity);
+        Assert.Null(issue.RecordNumber);
+    }
+
+    /// <summary>
+    /// A comparação dos cabeçalhos distingue maiúsculas de minúsculas.
+    /// </summary>
+    [Fact]
+    public void Validate_WhenHeaderCaseDiffers_DoesNotReportDuplicate()
+    {
+        // Preparação.
+        using var reader = new StringReader(
+            "nome;Nome\nAna;Maria");
+
+        var csv = new CsvDataReader().Read(reader);
+
+        // Execução.
+        var issues = new CsvValidationService().Validate(
+            csv,
+            Array.Empty<FieldMapping>(),
+            expectedColumnCount: 2);
+
+        // Verificação.
+        Assert.Empty(issues);
+    }
 }

@@ -75,6 +75,94 @@ public sealed class CsvValidationService
 
         var issues = new List<ValidationIssue>();
 
+        // Sem cabeçalho nem registos, não existe conteúdo para importar.
+        if (csv.Headers.Count == 0 && csv.Records.Count == 0)
+        {
+            issues.Add(new ValidationIssue
+            {
+                RuleCode = "validation.empty_file",
+                Severity = ValidationSeverity.Error,
+                CorrectionCode = "correction.provide_csv_content"
+            });
+
+            return issues.AsReadOnly();
+        }
+
+        // A comparação é exata e independente do idioma.
+        // Nesta versão, "nome" e "Nome" são cabeçalhos diferentes.
+        var firstColumnByHeader = new Dictionary<string, int>(
+            StringComparer.Ordinal);
+
+        for (int index = 0; index < csv.Headers.Count; index++)
+        {
+            string header = csv.Headers[index];
+            int columnNumber = index + 1;
+
+            if (string.IsNullOrWhiteSpace(header))
+            {
+                // Conserva o cabeçalho original, incluindo espaços.
+                issues.Add(new ValidationIssue
+                {
+                    RuleCode = "validation.header_required",
+                    Severity = ValidationSeverity.Error,
+                    StartLineNumber = 1,
+                    EndLineNumber = csv.HeaderEndLineNumber,
+                    ColumnNumber = columnNumber,
+                    SourceField = header,
+                    OriginalValue = header,
+                    CorrectionCode = "correction.provide_header"
+                });
+
+                continue;
+            }
+
+            if (firstColumnByHeader.TryGetValue(
+                header, out int firstColumnNumber))
+            {
+                // Identifica a coluna repetida e indica onde surgiu primeiro.
+                issues.Add(new ValidationIssue
+                {
+                    RuleCode = "validation.duplicate_header",
+                    Severity = ValidationSeverity.Error,
+                    StartLineNumber = 1,
+                    EndLineNumber = csv.HeaderEndLineNumber,
+                    ColumnNumber = columnNumber,
+                    SourceField = header,
+                    OriginalValue = header,
+                    CorrectionCode = "correction.rename_duplicate_header",
+                    Parameters = new Dictionary<string, string>
+                    {
+                        ["firstColumnNumber"] = firstColumnNumber.ToString(
+                            CultureInfo.InvariantCulture)
+                    }
+                });
+            }
+            else
+            {
+                firstColumnByHeader.Add(header, columnNumber);
+            }
+        }
+
+        // Os cabeçalhos devem ser corrigidos antes da validação dos dados,
+        // para que a identificação dos campos seja clara.
+        if (issues.Count > 0)
+        {
+            return issues.AsReadOnly();
+        }
+
+        // Um ficheiro apenas com cabeçalho também não tem dados para importar.
+        if (csv.Records.Count == 0)
+        {
+            issues.Add(new ValidationIssue
+            {
+                RuleCode = "validation.no_data_records",
+                Severity = ValidationSeverity.Error,
+                CorrectionCode = "correction.provide_data_records"
+            });
+
+            return issues.AsReadOnly();
+        }
+
         foreach (var record in csv.Records)
         {
             if (record.Values.Count != expectedColumnCount)

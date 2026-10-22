@@ -51,6 +51,8 @@ public sealed class CsvDataReader
             leaveOpen: true);
 
         var headers = Array.Empty<string>();
+        // Guarda a localização do cabeçalho, incluindo cabeçalhos multilinha.
+        long? headerEndLineNumber = null;
         var records = new List<CsvDataRecord>();
 
         long previousEndLine = 0;
@@ -71,6 +73,7 @@ public sealed class CsvDataReader
             if (isFirstRecord && hasHeader)
             {
                 headers = values;
+                headerEndLineNumber = endLine;
             }
             else
             {
@@ -91,6 +94,7 @@ public sealed class CsvDataReader
         return new CsvReadResult
         {
             Headers = Array.AsReadOnly(headers),
+            HeaderEndLineNumber = headerEndLineNumber,
             Records = records.AsReadOnly()
         };
     }
