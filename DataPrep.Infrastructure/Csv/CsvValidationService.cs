@@ -34,6 +34,13 @@ public sealed class CsvValidationService
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(
             expectedColumnCount);
 
+        // Uma leitura incompleta não deve produzir diagnósticos adicionais
+        // sobre cabeçalhos ou registos que podem estar apenas parcialmente lidos.
+        if (!csv.IsComplete)
+        {
+            return csv.ReadIssues;
+        }
+
         // Havendo cabeçalho, a estrutura esperada é definida por ele.
         if (csv.Headers.Count > 0 &&
             csv.Headers.Count != expectedColumnCount)

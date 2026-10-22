@@ -133,4 +133,82 @@ public sealed class CsvDataReaderTests
         Assert.Equal(4L, result.Records[2].StartLineNumber);
         Assert.Equal(3L, result.Records[2].RecordNumber);
     }
+    /// <summary>
+    /// Aspas numa posição inválida devem produzir um diagnóstico,
+    /// conservando apenas os registos completamente lidos antes do erro.
+    /// </summary>
+    [Fact]
+    public void Read_WhenQuotingIsInvalid_ReturnsIncompleteResult()
+    {
+        // Preparação: existem caracteres depois das aspas de fecho.
+        using var reader = new StringReader(
+            "codigo;nome\n" +
+            "P1;Mesa\n" +
+            "P2;\"Cadeira\"extra\n" +
+            "P3;Banco");
+
+        var service = new CsvDataReader();
+
+        // Execução.
+        var result = service.Read(reader);
+
+        // Verificação: apenas o primeiro registo foi concluído.
+        Assert.False(result.IsComplete);
+        Assert.Single(result.Records);
+
+        var issue = Assert.Single(result.ReadIssues);
+
+        Assert.Equal("validation.csv_syntax", issue.RuleCode);
+        Assert.Equal("correction.fix_csv_quoting", issue.CorrectionCode);
+        Assert.Equal(2L, issue.RecordNumber);
+        Assert.Equal(3L, issue.StartLineNumber);
+        Assert.Equal(3L, issue.EndLineNumber);
+        Assert.Equal(2, issue.ColumnNumber);
+        Assert.Equal("nome", issue.SourceField);
+        Assert.Null(issue.OriginalValue);
+        Assert.Contains("Cadeira", issue.Parameters["rawField"]);
+        Assert.Equal("data", issue.Parameters["section"]);
+    }
+
+    /// <summary>
+    /// Um erro no cabeçalho não deve ser identificado como registo de dados.
+    /// </summary>
+    [Fact]
+    public void Read_WhenHeaderSyntaxIsInvalid_ReturnsHeaderIssue()
+    {
+        // Preparação.
+        using var reader = new StringReader(
+            "codigo;\"nome\"extra\nP1;Mesa");
+
+        // Execução.
+        var result = new CsvDataReader().Read(reader);
+
+        // Verificação.
+        Assert.False(result.IsComplete);
+        Assert.Empty(result.Records);
+
+        var issue = Assert.Single(result.ReadIssues);
+
+        Assert.Null(issue.RecordNumber);
+        Assert.Equal(1L, issue.StartLineNumber);
+        Assert.Equal(2, issue.ColumnNumber);
+        Assert.Equal("header", issue.Parameters["section"]);
+    }
+
+    /// <summary>
+    /// Um CSV válido deve terminar sem problemas de leitura.
+    /// </summary>
+    [Fact]
+    public void Read_WhenSyntaxIsValid_MarksReadingAsComplete()
+    {
+        // Preparação.
+        using var reader = new StringReader("codigo;nome\nP1;Mesa");
+
+        // Execução.
+        var result = new CsvDataReader().Read(reader);
+
+        // Verificação.
+        Assert.True(result.IsComplete);
+        Assert.Empty(result.ReadIssues);
+    }
 }

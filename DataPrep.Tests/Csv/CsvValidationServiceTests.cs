@@ -306,4 +306,39 @@ public sealed class CsvValidationServiceTests
         // Verificação.
         Assert.Empty(issues);
     }
+
+    /// <summary>
+    /// Uma leitura interrompida devolve o erro original,
+    /// sem validar os registos parciais nem produzir erros secundários.
+    /// </summary>
+    [Fact]
+    public void Validate_WhenReadingIsIncomplete_ReturnsReadingIssueOnly()
+    {
+        // Preparação: o registo anterior ao erro também tem dados inválidos,
+        // mas a validação dos campos não deve começar.
+        using var reader = new StringReader(
+            "codigo;quantidade\n" +
+            "P1;abc\n" +
+            "P2;\"10\"extra");
+
+        var csv = new CsvDataReader().Read(reader);
+
+        var mappings = new[]
+        {
+        new FieldMapping
+        {
+            SourceColumnNumber = 2,
+            MustBeInteger = true
+        }
+    };
+
+        // Execução.
+        var issues = new CsvValidationService().Validate(
+            csv, mappings, expectedColumnCount: 2);
+
+        // Verificação: conserva exatamente o diagnóstico da leitura.
+        var issue = Assert.Single(issues);
+        Assert.Equal("validation.csv_syntax", issue.RuleCode);
+        Assert.Same(csv.ReadIssues[0], issue);
+    }
 }

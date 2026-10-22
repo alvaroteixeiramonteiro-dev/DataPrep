@@ -1,27 +1,30 @@
 ﻿using System.Globalization;
 using CsvHelper;
 using CsvHelper.Configuration;
+using DataPrep.Core.Validation;
 
 namespace DataPrep.Infrastructure.Csv;
 
 /// <summary>
-/// Lê a estrutura CSV sem converter os valores para tipos de negócio.
+/// Lê valores e localizações do CSV.
+/// Converte erros de sintaxe em diagnósticos independentes do idioma.
 /// </summary>
 public sealed class CsvDataReader
 {
     /// <summary>
-    /// Lê os dados a partir da posição atual do leitor.
-    /// O código que fornece o leitor continua responsável por o fechar.
+    /// Lê a partir da posição atual do leitor.
+    /// O chamador continua responsável por fechar o leitor.
+    /// A leitura termina no primeiro erro de sintaxe.
     /// </summary>
     /// <param name="reader">Origem do texto já descodificado.</param>
-    /// <param name="delimiter">Separador escolhido, por exemplo ";" ou ",".</param>
-    /// <param name="hasHeader">Indica se o primeiro registo é o cabeçalho.</param>
+    /// <param name="delimiter">Separador escolhido para os campos.</param>
+    /// <param name="hasHeader">Indica se existe cabeçalho.</param>
     public CsvReadResult Read(
         TextReader reader,
         string delimiter = ";",
         bool hasHeader = true)
     {
-        // Argumentos inválidos representam erros de utilização do serviço.
+        // Configurações inválidas continuam a ser erros de utilização.
         ArgumentNullException.ThrowIfNull(reader);
         ArgumentException.ThrowIfNullOrWhiteSpace(delimiter);
 
@@ -29,73 +32,128 @@ public sealed class CsvDataReader
             CultureInfo.InvariantCulture)
         {
             Delimiter = delimiter,
-
-            // O cabeçalho será tratado explicitamente pelo nosso código.
             HasHeaderRecord = false,
-
-            // Não saltamos linhas vazias: também precisam de localização
-            // e poderão produzir diagnósticos numa etapa posterior.
             IgnoreBlankLines = false,
-
-            // Não removemos espaços durante a leitura.
             TrimOptions = TrimOptions.None,
+            ExceptionMessagesContainRawData = false,
 
-            // Evita incluir o conteúdo original nas mensagens de exceção.
-            ExceptionMessagesContainRawData = false
+            // Usa as regras de aspas e escapes do formato CSV.
+            Mode = CsvMode.RFC4180
         };
 
-        // O parser é fechado no fim, mas o leitor recebido fica aberto.
         using var parser = new CsvParser(
             reader,
             configuration,
             leaveOpen: true);
 
         var headers = Array.Empty<string>();
-        // Guarda a localização do cabeçalho, incluindo cabeçalhos multilinha.
         long? headerEndLineNumber = null;
+
         var records = new List<CsvDataRecord>();
+        var readIssues = new List<ValidationIssue>();
 
         long previousEndLine = 0;
         long recordNumber = 0;
         bool isFirstRecord = true;
 
-        while (parser.Read())
+        while (true)
         {
-            // RawRow conta linhas físicas, incluindo quebras dentro de campos.
             long startLine = previousEndLine + 1;
-            long endLine = parser.RawRow;
-            previousEndLine = endLine;
+            bool readingHeader = isFirstRecord && hasHeader;
 
-            // Criamos uma cópia porque o parser mantém estado entre leituras.
-            // O acesso a Record também força a interpretação dos campos.
-            var values = parser.Record!.ToArray();
+            // A posição só fica conhecida quando começamos a interpretar
+            // individualmente os campos do registo.
+            int? currentColumnNumber = null;
 
-            if (isFirstRecord && hasHeader)
+            try
             {
-                headers = values;
-                headerEndLineNumber = endLine;
-            }
-            else
-            {
-                recordNumber++;
-
-                records.Add(new CsvDataRecord
+                if (!parser.Read())
                 {
-                    RecordNumber = recordNumber,
-                    StartLineNumber = startLine,
-                    EndLineNumber = endLine,
-                    Values = Array.AsReadOnly(values)
-                });
-            }
+                    break;
+                }
 
-            isFirstRecord = false;
+                long endLine = parser.RawRow;
+
+                // Lê cada campo individualmente para identificar a coluna
+                // caso o parser encontre sintaxe inválida nesse campo.
+                var values = new string[parser.Count];
+
+                for (int index = 0; index < parser.Count; index++)
+                {
+                    currentColumnNumber = index + 1;
+                    values[index] = parser[index];
+                }
+
+                if (readingHeader)
+                {
+                    headers = values;
+                    headerEndLineNumber = endLine;
+                }
+                else
+                {
+                    recordNumber++;
+
+                    records.Add(new CsvDataRecord
+                    {
+                        RecordNumber = recordNumber,
+                        StartLineNumber = startLine,
+                        EndLineNumber = endLine,
+                        Values = Array.AsReadOnly(values)
+                    });
+                }
+
+                // Só avança o estado depois de interpretar o registo inteiro.
+                previousEndLine = endLine;
+                isFirstRecord = false;
+            }
+            catch (BadDataException exception)
+            {
+                // Um cabeçalho malformado ainda não tem nome fiável.
+                // Nos dados, usa o nome apenas se a coluna estiver disponível.
+                string? sourceField = null;
+
+                if (!readingHeader &&
+                    currentColumnNumber is int column &&
+                    column <= headers.Length)
+                {
+                    sourceField = headers[column - 1];
+                }
+
+                readIssues.Add(new ValidationIssue
+                {
+                    RuleCode = "validation.csv_syntax",
+                    Severity = ValidationSeverity.Error,
+                    RecordNumber = readingHeader
+                        ? null
+                        : recordNumber + 1,
+
+                    StartLineNumber = startLine,
+                    EndLineNumber = Math.Max(startLine, parser.RawRow),
+                    ColumnNumber = currentColumnNumber,
+                    SourceField = sourceField,
+
+                    // Não existe um valor interpretado com segurança.
+                    // O fragmento bruto é guardado num parâmetro próprio.
+                    OriginalValue = null,
+                    CorrectionCode = "correction.fix_csv_quoting",
+                    Parameters = new Dictionary<string, string>
+                    {
+                        ["rawField"] = exception.Field ?? "",
+                        ["section"] = readingHeader ? "header" : "data"
+                    }
+                });
+
+                // Não tenta recuperar o alinhamento depois de sintaxe inválida.
+                break;
+            }
         }
 
         return new CsvReadResult
         {
             Headers = Array.AsReadOnly(headers),
             HeaderEndLineNumber = headerEndLineNumber,
-            Records = records.AsReadOnly()
+            Records = records.AsReadOnly(),
+            ReadIssues = readIssues.AsReadOnly()
         };
     }
 }

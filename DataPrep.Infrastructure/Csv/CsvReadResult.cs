@@ -1,4 +1,6 @@
-﻿namespace DataPrep.Infrastructure.Csv;
+﻿using DataPrep.Core.Validation;
+
+namespace DataPrep.Infrastructure.Csv;
 
 /// <summary>
 /// Contém o resultado da leitura de um CSV.
@@ -24,4 +26,18 @@ public sealed class CsvReadResult
     /// O cabeçalho começa na primeira linha física do ficheiro.
     /// </summary>
     public long? HeaderEndLineNumber { get; init; }
+
+    /// <summary>
+    /// Problemas de sintaxe encontrados durante a leitura.
+    /// Uma leitura interrompida pode conter apenas os registos anteriores ao erro.
+    /// </summary>
+    public IReadOnlyList<ValidationIssue> ReadIssues { get; init; }
+        = Array.Empty<ValidationIssue>();
+
+    /// <summary>
+    /// Indica se a leitura terminou sem erros bloqueantes.
+    /// Não significa que os dados já passaram nas regras de validação.
+    /// </summary>
+    public bool IsComplete =>
+        !ReadIssues.Any(issue => issue.Severity == ValidationSeverity.Error);
 }
