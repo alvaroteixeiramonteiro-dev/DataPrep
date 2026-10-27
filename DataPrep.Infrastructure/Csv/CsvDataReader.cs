@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Text;
+using System.Globalization;
 using CsvHelper;
 using CsvHelper.Configuration;
 using DataPrep.Core.Validation;
@@ -11,6 +12,62 @@ namespace DataPrep.Infrastructure.Csv;
 /// </summary>
 public sealed class CsvDataReader
 {
+    /// <summary>
+    /// Abre e lê um ficheiro CSV codificado em UTF-8, com ou sem BOM.
+    /// Fecha o ficheiro depois da leitura, mesmo quando ocorre um erro.
+    /// </summary>
+    /// <param name="path">Caminho do ficheiro.</param>
+    /// <param name="delimiter">Separador escolhido para os campos.</param>
+    /// <param name="hasHeader">Indica se existe cabeçalho.</param>
+    public CsvReadResult ReadFile(
+        string path,
+        string delimiter = ";",
+        bool hasHeader = true)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        // Lança uma exceção se encontrar bytes inválidos para UTF-8,
+        // em vez de os substituir por caracteres de substituição.
+        // O preâmbulo permite ao StreamReader reconhecer um BOM UTF-8.
+        var encoding = new UTF8Encoding(
+            encoderShouldEmitUTF8Identifier: true,
+            throwOnInvalidBytes: true);
+
+        try
+        {
+            // Não deteta automaticamente outras codificações através do BOM.
+            // Nesta etapa, o contrato do método é exclusivamente UTF-8.
+            using var reader = new StreamReader(
+                path,
+                encoding,
+                detectEncodingFromByteOrderMarks: false);
+
+            return Read(reader, delimiter, hasHeader);
+        }
+        catch (DecoderFallbackException)
+        {
+            // Descarta qualquer leitura parcial.
+            // Sem texto descodificado corretamente, não atribuímos uma linha
+            // ou um campo que não conseguimos identificar com segurança.
+            var issue = new ValidationIssue
+            {
+                RuleCode = "validation.csv_encoding",
+                Severity = ValidationSeverity.Error,
+                CorrectionCode = "correction.save_as_utf8",
+                Parameters = new Dictionary<string, string>
+                {
+                    ["encoding"] = "UTF-8"
+                }
+            };
+
+            return new CsvReadResult
+            {
+                Headers = Array.Empty<string>(),
+                Records = Array.Empty<CsvDataRecord>(),
+                ReadIssues = Array.AsReadOnly(new[] { issue })
+            };
+        }
+    }
     /// <summary>
     /// Lê a partir da posição atual do leitor.
     /// O chamador continua responsável por fechar o leitor.
