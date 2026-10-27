@@ -1,3 +1,6 @@
+using DataPrep.Infrastructure.Csv;
+using Microsoft.AspNetCore.Localization;
+
 namespace DataPrep.Web
 {
     public class Program
@@ -8,6 +11,13 @@ namespace DataPrep.Web
 
             // Add services to the container.
             builder.Services.AddRazorPages();
+
+            // Recursos de tradução guardados na pasta Resources.
+            builder.Services.AddLocalization(options =>
+                options.ResourcesPath = "Resources");
+
+            // O leitor não mantém estado entre operações.
+            builder.Services.AddTransient<CsvDataReader>();
 
             var app = builder.Build();
 
@@ -24,6 +34,15 @@ namespace DataPrep.Web
             app.UseRouting();
 
             app.UseAuthorization();
+
+            // O idioma pode ser escolhido pelo parâmetro de URL "culture".
+            // Novos idiomas podem ser acrescentados com os respetivos recursos.
+            var supportedCultures = new[] { "pt-PT", "en" };
+
+            app.UseRequestLocalization(new RequestLocalizationOptions()
+                .SetDefaultCulture("pt-PT")
+                .AddSupportedCultures(supportedCultures)
+                .AddSupportedUICultures(supportedCultures));
 
             app.MapStaticAssets();
             app.MapRazorPages()

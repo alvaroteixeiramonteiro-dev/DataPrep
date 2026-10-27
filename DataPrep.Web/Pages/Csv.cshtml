@@ -1,0 +1,172 @@
+﻿@page
+@model DataPrep.Web.Pages.CsvModel
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<DataPrep.Web.Pages.CsvModel> T
+
+@{
+    ViewData["Title"] = T["Title"];
+    var culture = System.Globalization.CultureInfo.CurrentUICulture.Name;
+}
+
+@* Os links mudam o idioma. Um novo pedido limpa a pré-visualização atual. *@
+<nav class="mb-3" aria-label="@T["Language"]">
+    <a asp-page="/Csv" asp-route-culture="pt-PT">Português</a>
+    <span> | </span>
+    <a asp-page="/Csv" asp-route-culture="en">English</a>
+</nav>
+
+<h1>@T["Title"]</h1>
+<p>@T["Introduction"]</p>
+
+@* O Tag Helper do formulário acrescenta a proteção antifalsificação.
+   multipart/form-data permite enviar o conteúdo do ficheiro. *@
+<form method="post"
+      enctype="multipart/form-data"
+      asp-route-culture="@culture"
+      class="mb-4">
+
+    <div class="mb-3">
+        <label asp-for="Upload" class="form-label">@T["File"]</label>
+        <input asp-for="Upload"
+               type="file"
+               accept=".csv,text/csv"
+               class="form-control"
+               required />
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Delimiter" class="form-label">@T["Delimiter"]</label>
+        <select asp-for="Delimiter" class="form-select">
+            <option value=";">@T["Semicolon"]</option>
+            <option value=",">@T["Comma"]</option>
+            <option value="&#9;">@T["Tab"]</option>
+        </select>
+    </div>
+
+    <div class="form-check mb-3">
+        <input asp-for="HasHeader" class="form-check-input" />
+        <label asp-for="HasHeader" class="form-check-label">
+            @T["HasHeader"]
+        </label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">@T["ReadCsv"]</button>
+</form>
+
+@if (Model.ErrorKey is not null)
+{
+    <div class="alert alert-danger" role="alert">
+        @T[Model.ErrorKey]
+    </div>
+}
+
+@if (Model.Result is { } result)
+{
+    <h2>@T["Result"]</h2>
+    <p>@Model.DisplayFileName</p>
+
+    @if (!result.IsComplete)
+    {
+        <div class="alert alert-danger" role="alert">
+            @T["Incomplete"]
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            @T["ReadingComplete"]
+        </div>
+    }
+
+    @* Traduz os códigos sem introduzir mensagens nas regras. *@
+    @foreach (var issue in result.ReadIssues)
+    {
+        <section class="border rounded p-3 mb-3">
+            <h3 class="h5">@T[issue.RuleCode]</h3>
+
+            <dl>
+                <dt>@T["Lines"]</dt>
+                <dd>@issue.StartLineNumber – @issue.EndLineNumber</dd>
+
+                <dt>@T["Column"]</dt>
+                <dd>@issue.ColumnNumber</dd>
+
+                <dt>@T["Field"]</dt>
+                <dd>@issue.SourceField</dd>
+
+                <dt>@T["RawFragment"]</dt>
+                <dd>
+                    @if (issue.Parameters.TryGetValue("rawField", out var raw))
+                    {
+                        <pre class="text-wrap">@raw</pre>
+                    }
+                </dd>
+
+                <dt>@T["Correction"]</dt>
+                <dd>@T[issue.CorrectionCode]</dd>
+            </dl>
+        </section>
+    }
+
+    <h2>@T["Preview"]</h2>
+    <p>@T["PreviewNotice"]</p>
+
+    @if (Model.Preview.Count == 0)
+    {
+        <p>@T["NoRecords"]</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th scope="col">@T["Record"]</th>
+                        <th scope="col">@T["Lines"]</th>
+
+                        @for (int index = 0; index < Model.PreviewColumnCount; index++)
+                        {
+                            <th scope="col">
+                                @if (index < result.Headers.Count)
+                                {
+                                    @result.Headers[index]
+                                }
+                                else
+                                {
+                                    @T["Column"] @(index + 1)
+                                }
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var record in Model.Preview)
+                    {
+                        <tr>
+                            <th scope="row">@record.RecordNumber</th>
+                            <td>
+                                @record.StartLineNumber – @record.EndLineNumber
+                            </td>
+
+                            @for (int index = 0; index < Model.PreviewColumnCount; index++)
+                            {
+                                <td>
+                                    @if (index < record.Values.Count)
+                                    {
+                                        @* Razor codifica o conteúdo como HTML.
+                                           O pre preserva espaços e quebras. *@
+                                        <pre class="m-0 text-wrap">@record.Values[index]</pre>
+                                    }
+                                    else
+                                    {
+                                        <em>@T["MissingField"]</em>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
