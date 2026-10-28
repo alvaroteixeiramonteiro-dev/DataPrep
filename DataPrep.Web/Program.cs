@@ -19,6 +19,9 @@ namespace DataPrep.Web
             // O leitor não mantém estado entre operações.
             builder.Services.AddTransient<CsvDataReader>();
 
+            // Verifica a estrutura do CSV e, futuramente, os campos mapeados.
+            builder.Services.AddTransient<CsvValidationService>();
+
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.

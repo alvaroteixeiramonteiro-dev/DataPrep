@@ -50,6 +50,22 @@
         </label>
     </div>
 
+    @* Este valor só é utilizado quando o ficheiro não tem cabeçalho. *@
+    <div class="mb-3">
+        <label asp-for="ExpectedColumnCount" class="form-label">
+            @T["ExpectedColumnCount"]
+        </label>
+        <input asp-for="ExpectedColumnCount"
+               type="number"
+               min="1"
+               step="1"
+               class="form-control"
+               aria-describedby="expected-columns-help" />
+        <div id="expected-columns-help" class="form-text">
+            @T["ExpectedColumnCountHelp"]
+        </div>
+    </div>
+
     <button type="submit" class="btn btn-primary">@T["ReadCsv"]</button>
 </form>
 
@@ -71,36 +87,80 @@
             @T["Incomplete"]
         </div>
     }
+    else if (Model.HasErrors)
+    {
+        <div class="alert alert-danger" role="alert">
+            @T["StructureInvalid"]
+        </div>
+    }
     else
     {
-        <div class="alert alert-info">
-            @T["ReadingComplete"]
+        <div class="alert alert-success" role="status">
+            @T["StructureValid"]
         </div>
     }
 
-    @* Traduz os códigos sem introduzir mensagens nas regras. *@
-    @foreach (var issue in result.ReadIssues)
+    @* Mostra os diagnósticos do ficheiro inteiro, incluindo os que
+   pertencem a registos fora da pré-visualização. *@
+    @foreach (var issue in Model.Issues)
     {
         <section class="border rounded p-3 mb-3">
             <h3 class="h5">@T[issue.RuleCode]</h3>
 
             <dl>
-                <dt>@T["Lines"]</dt>
-                <dd>@issue.StartLineNumber – @issue.EndLineNumber</dd>
+                @if (issue.RecordNumber is not null)
+                {
+                    <dt>@T["Record"]</dt>
+                    <dd>@issue.RecordNumber</dd>
+                }
 
-                <dt>@T["Column"]</dt>
-                <dd>@issue.ColumnNumber</dd>
+                @if (issue.StartLineNumber is not null)
+                {
+                    <dt>@T["Lines"]</dt>
+                    <dd>@issue.StartLineNumber – @issue.EndLineNumber</dd>
+                }
 
-                <dt>@T["Field"]</dt>
-                <dd>@issue.SourceField</dd>
+                @if (issue.ColumnNumber is not null)
+                {
+                    <dt>@T["Column"]</dt>
+                    <dd>@issue.ColumnNumber</dd>
+                }
 
-                <dt>@T["RawFragment"]</dt>
-                <dd>
-                    @if (issue.Parameters.TryGetValue("rawField", out var raw))
-                    {
-                        <pre class="text-wrap">@raw</pre>
-                    }
-                </dd>
+                @if (issue.SourceField is not null)
+                {
+                    <dt>@T["Field"]</dt>
+                    <dd><pre class="m-0 text-wrap">@issue.SourceField</pre></dd>
+                }
+
+                @if (issue.OriginalValue is not null)
+                {
+                    <dt>@T["OriginalValue"]</dt>
+                    <dd><pre class="m-0 text-wrap">@issue.OriginalValue</pre></dd>
+                }
+
+                @if (issue.Parameters.TryGetValue("expectedCount", out var expected))
+                {
+                    <dt>@T["ExpectedCount"]</dt>
+                    <dd>@expected</dd>
+                }
+
+                @if (issue.Parameters.TryGetValue("actualCount", out var actual))
+                {
+                    <dt>@T["ActualCount"]</dt>
+                    <dd>@actual</dd>
+                }
+
+                @if (issue.Parameters.TryGetValue("firstColumnNumber", out var first))
+                {
+                    <dt>@T["FirstColumnNumber"]</dt>
+                    <dd>@first</dd>
+                }
+
+                @if (issue.Parameters.TryGetValue("rawField", out var raw))
+                {
+                    <dt>@T["RawFragment"]</dt>
+                    <dd><pre class="m-0 text-wrap">@raw</pre></dd>
+                }
 
                 <dt>@T["Correction"]</dt>
                 <dd>@T[issue.CorrectionCode]</dd>

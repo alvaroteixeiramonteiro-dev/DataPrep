@@ -102,4 +102,61 @@
   <data name="correction.fix_csv_quoting" xml:space="preserve">
     <value>Review field quotes and escape embedded quotes by doubling them.</value>
   </data>
+  <data name="ExpectedColumnCount" xml:space="preserve">
+    <value>Expected number of columns</value>
+  </data>
+  <data name="ExpectedColumnCountHelp" xml:space="preserve">
+    <value>Required only for files without headers.</value>
+  </data>
+  <data name="ExpectedColumnCountRequired" xml:space="preserve">
+    <value>For a file without headers, enter a positive whole number of columns.</value>
+  </data>
+  <data name="StructureInvalid" xml:space="preserve">
+    <value>Reading completed, but structural problems were found.</value>
+  </data>
+  <data name="StructureValid" xml:space="preserve">
+    <value>Structural validation passed. Field validation and database import are still pending.</value>
+  </data>
+  <data name="OriginalValue" xml:space="preserve">
+    <value>Original value</value>
+  </data>
+  <data name="ExpectedCount" xml:space="preserve">
+    <value>Expected columns</value>
+  </data>
+  <data name="ActualCount" xml:space="preserve">
+    <value>Columns found</value>
+  </data>
+  <data name="FirstColumnNumber" xml:space="preserve">
+    <value>First column with this name</value>
+  </data>
+  <data name="validation.empty_file" xml:space="preserve">
+    <value>The file has no content.</value>
+  </data>
+  <data name="correction.provide_csv_content" xml:space="preserve">
+    <value>Provide a CSV file containing data.</value>
+  </data>
+  <data name="validation.header_required" xml:space="preserve">
+    <value>A column header is empty.</value>
+  </data>
+  <data name="correction.provide_header" xml:space="preserve">
+    <value>Give this column a name.</value>
+  </data>
+  <data name="validation.duplicate_header" xml:space="preserve">
+    <value>A column header is repeated.</value>
+  </data>
+  <data name="correction.rename_duplicate_header" xml:space="preserve">
+    <value>Give the repeated column a unique name.</value>
+  </data>
+  <data name="validation.no_data_records" xml:space="preserve">
+    <value>The file contains headers but no data records.</value>
+  </data>
+  <data name="correction.provide_data_records" xml:space="preserve">
+    <value>Add data records after the headers.</value>
+  </data>
+  <data name="validation.column_count" xml:space="preserve">
+    <value>The record has an unexpected number of columns.</value>
+  </data>
+  <data name="correction.fix_column_count" xml:space="preserve">
+    <value>Correct the number of fields and check the delimiter and quoting.</value>
+  </data>
 </root>

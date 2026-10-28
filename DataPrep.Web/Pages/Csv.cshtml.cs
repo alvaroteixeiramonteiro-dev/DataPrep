@@ -2,6 +2,7 @@
 using DataPrep.Infrastructure.Csv;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using DataPrep.Core.Validation;
 
 namespace DataPrep.Web.Pages;
 
@@ -15,13 +16,17 @@ public sealed class CsvModel : PageModel
 {
     private const long MaxFileSize = 5 * 1024 * 1024;
     private readonly CsvDataReader _reader;
+    private readonly CsvValidationService _validator;
 
     /// <summary>
-    /// Recebe o serviço registado no contentor de dependências.
+    /// Recebe os serviços de leitura e validação registados na aplicação.
     /// </summary>
-    public CsvModel(CsvDataReader reader)
+    public CsvModel(
+        CsvDataReader reader,
+        CsvValidationService validator)
     {
         _reader = reader;
+        _validator = validator;
     }
 
     /// <summary>Ficheiro enviado pelo formulário.</summary>
@@ -35,6 +40,12 @@ public sealed class CsvModel : PageModel
     /// <summary>Indica se o primeiro registo é um cabeçalho.</summary>
     [BindProperty]
     public bool HasHeader { get; set; } = true;
+
+    /// Quantidade de colunas definida pelo utilizador para CSV sem cabeçalho.
+    /// Com cabeçalho, a quantidade é obtida a partir dos nomes lidos.
+    /// </summary>
+    [BindProperty]
+    public int? ExpectedColumnCount { get; set; }
 
     /// <summary>Resultado da leitura, incluindo possíveis problemas.</summary>
     public CsvReadResult? Result { get; private set; }
@@ -54,6 +65,13 @@ public sealed class CsvModel : PageModel
         ?? Array.Empty<CsvDataRecord>();
 
     /// <summary>
+    /// Problemas de leitura ou de estrutura encontrados no ficheiro completo.
+    /// A pré-visualização continua limitada a vinte registos.
+    /// </summary>
+    public IReadOnlyList<ValidationIssue> Issues { get; private set; }
+        = Array.Empty<ValidationIssue>();
+
+    /// <summary>
     /// Determina a largura da tabela sem esconder colunas adicionais.
     /// </summary>
     public int PreviewColumnCount => Math.Max(
@@ -61,6 +79,12 @@ public sealed class CsvModel : PageModel
         Preview.Select(record => record.Values.Count)
             .DefaultIfEmpty(0)
             .Max());
+
+    /// <summary>
+    /// Indica se existe algum problema bloqueante no resultado apresentado.
+    /// </summary>
+    public bool HasErrors =>
+        Issues.Any(issue => issue.Severity == ValidationSeverity.Error);
 
     /// <summary>
     /// Valida os parâmetros do envio e executa a leitura UTF-8.
@@ -86,6 +110,18 @@ public sealed class CsvModel : PageModel
             return Page();
         }
 
+        // Sem cabeçalho, não adivinha a quantidade esperada a partir dos dados.
+        // Também rejeita texto não numérico ou valores fora do intervalo de int.
+        if (!HasHeader &&
+            (ExpectedColumnCount is null ||
+             ExpectedColumnCount <= 0 ||
+             (ModelState.TryGetValue(nameof(ExpectedColumnCount), out var entry)
+              && entry.Errors.Count > 0)))
+        {
+            ErrorKey = "ExpectedColumnCountRequired";
+            return Page();
+        }
+
         DisplayFileName = Path.GetFileName(Upload.FileName);
 
         var encoding = new UTF8Encoding(
@@ -101,6 +137,26 @@ public sealed class CsvModel : PageModel
                 detectEncodingFromByteOrderMarks: false);
 
             Result = _reader.Read(textReader, Delimiter, HasHeader);
+
+            if (!Result.IsComplete)
+            {
+                // Uma leitura interrompida não permite validar a estrutura completa.
+                Issues = Result.ReadIssues;
+            }
+            else
+            {
+                // Um ficheiro vazio é encaminhado com uma quantidade positiva,
+                // permitindo ao serviço devolver o diagnóstico de ficheiro vazio.
+                int expectedCount = HasHeader
+                    ? Math.Max(1, Result.Headers.Count)
+                    : ExpectedColumnCount!.Value;
+
+                // Sem mapeamentos, o serviço executa apenas a validação estrutural.
+                Issues = _validator.Validate(
+                    Result,
+                    Array.Empty<FieldMapping>(),
+                    expectedCount);
+            }
         }
         catch (DecoderFallbackException)
         {

@@ -102,4 +102,61 @@
   <data name="correction.fix_csv_quoting" xml:space="preserve">
     <value>Revê as aspas dos campos e representa aspas interiores através de duas aspas consecutivas.</value>
   </data>
+  <data name="ExpectedColumnCount" xml:space="preserve">
+    <value>Número esperado de colunas</value>
+  </data>
+  <data name="ExpectedColumnCountHelp" xml:space="preserve">
+    <value>Obrigatório apenas para ficheiros sem cabeçalho.</value>
+  </data>
+  <data name="ExpectedColumnCountRequired" xml:space="preserve">
+    <value>Para um ficheiro sem cabeçalho, indica um número inteiro positivo de colunas.</value>
+  </data>
+  <data name="StructureInvalid" xml:space="preserve">
+    <value>Leitura concluída, mas foram encontrados problemas na estrutura.</value>
+  </data>
+  <data name="StructureValid" xml:space="preserve">
+    <value>A estrutura passou na validação. A validação dos campos e a importação para a base de dados ainda estão pendentes.</value>
+  </data>
+  <data name="OriginalValue" xml:space="preserve">
+    <value>Valor original</value>
+  </data>
+  <data name="ExpectedCount" xml:space="preserve">
+    <value>Colunas esperadas</value>
+  </data>
+  <data name="ActualCount" xml:space="preserve">
+    <value>Colunas encontradas</value>
+  </data>
+  <data name="FirstColumnNumber" xml:space="preserve">
+    <value>Primeira coluna com este nome</value>
+  </data>
+  <data name="validation.empty_file" xml:space="preserve">
+    <value>O ficheiro não tem conteúdo.</value>
+  </data>
+  <data name="correction.provide_csv_content" xml:space="preserve">
+    <value>Fornece um ficheiro CSV com dados.</value>
+  </data>
+  <data name="validation.header_required" xml:space="preserve">
+    <value>O cabeçalho de uma coluna está vazio.</value>
+  </data>
+  <data name="correction.provide_header" xml:space="preserve">
+    <value>Atribui um nome a esta coluna.</value>
+  </data>
+  <data name="validation.duplicate_header" xml:space="preserve">
+    <value>O nome de uma coluna está repetido.</value>
+  </data>
+  <data name="correction.rename_duplicate_header" xml:space="preserve">
+    <value>Atribui um nome único à coluna repetida.</value>
+  </data>
+  <data name="validation.no_data_records" xml:space="preserve">
+    <value>O ficheiro contém cabeçalhos, mas não tem registos de dados.</value>
+  </data>
+  <data name="correction.provide_data_records" xml:space="preserve">
+    <value>Acrescenta registos de dados depois dos cabeçalhos.</value>
+  </data>
+  <data name="validation.column_count" xml:space="preserve">
+    <value>O registo tem uma quantidade de colunas diferente da esperada.</value>
+  </data>
+  <data name="correction.fix_column_count" xml:space="preserve">
+    <value>Corrige a quantidade de campos e verifica o separador e as aspas.</value>
+  </data>
 </root>
